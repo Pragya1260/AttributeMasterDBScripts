@@ -10,8 +10,7 @@ Execution Time	:	00.00
 Input Parameters:	@jsonStringForContactAddressAttributes, @machineName, @loginUser
 
 Algorithm and other details:
-Test Run		:	"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Insert (ContactAddressAttributes).txt"
-					"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Update(ContactAddressAttributes).txt"
+Test Run		:	"E:\NAVMDM\AttributeMaster\Docs\Execution Report - ContactAddressAttributes.txt"
 *************************************************************************/
 CREATE PROCEDURE MDM.SetMasterContactAddressAttribute
 (
@@ -33,25 +32,27 @@ BEGIN
 
 		DECLARE @ContactAddressAttributeMaster TABLE
 		(
-			AttributeID					INTEGER				NOT NULL
-			,AttributeName				MDM.UDTLongName		NOT NULL
+			AttributeMasterValueID		INTEGER				NOT NULL
+			,AttributeID				INTEGER				NOT NULL
+			,AttributeName				MDM.UDTLongName		NOT NULL	
+			,AttributeCode				MDM.UDTShortName
+			,AttributeValue				MDM.UDTLongName
 			,IsActive					TINYINT				NOT NULL
 			,IsDeleted					TINYINT				NOT NULL
-			,ControlType				INTEGER				
-			,IsMandatory				TINYINT				
-			,IsAddressType				TINYINT				NOT NULL
-			,Action						CHAR(1)
+			,ControlType				INTEGER
+			,ApplicableFor				TINYINT				NOT NULL
+			,Action						CHAR(1)				NOT NULL
 		)
 
 		DECLARE @ContactAttributeMasterValues TABLE
 		(
-			AttributeMasterValueID		INTEGER				NOT NULL
-			,AttributeID				INTEGER				NOT NULL
-			,AttributeCode				MDM.UDTShortName
-			,AttributeValue				MDM.UDTLongName
+			AttributeMasterID		INTEGER				NOT NULL
+			,AttributeID				INTEGER				NOT NULL	
+			,SubType					INTEGER				NOT NULL
 			,IsDefaultValue				TINYINT				NOT NULL
-			,IsActive					TINYINT				NOT NULL
-			,Action						CHAR(1)
+			,IsMandatory				TINYINT			    
+			,ApplicableFor				TINYINT				NOT NULL
+			,Action						CHAR(1)				NOT NULL
 		)
 
 		DECLARE @resultset TABLE
@@ -65,65 +66,71 @@ BEGIN
 		--READ DATA FROM JSON AND INSERT IT INTO TEMP TABLE
 		IF (@jsonStringForContactAddressAttributes IS NOT NULL)
 		BEGIN
-
 			INSERT INTO @ContactAddressAttributeMaster(	
-														AttributeID		
-														,AttributeName			
-														,IsActive				
-														,IsDeleted				
-														,ControlType			
-														,IsMandatory			
-														,IsAddressType			
-														,Action		
+														AttributeMasterValueID	
+														,AttributeID		
+														,AttributeName		
+														,AttributeCode		
+														,AttributeValue		
+														,IsActive			
+														,IsDeleted			
+														,ControlType		
+														,ApplicableFor		
+														,Action				
 														)
-												SELECT	AttributeID		
-														,AttributeName			
-														,IsActive				
-														,IsDeleted				
-														,ControlType			
-														,IsMandatory			
-														,IsAddressType			
-														,Action			
+												SELECT	AttributeMasterID	
+														,AttributeID		
+														,AttributeName		
+														,AttributeCode		
+														,AttributeValue		
+														,IsActive			
+														,IsDeleted			
+														,ControlType		
+														,ApplicableFor		
+														,Action				
 										FROM	OPENJSON(@jsonStringForContactAddressAttributes, '$.AttributeMaster')   
 										WITH  (	
-												AttributeID				INTEGER			
+												AttributeMasterID			INTEGER			
+												,AttributeID				INTEGER			
 												,AttributeName				MDM.UDTLongName	
+												,AttributeCode				MDM.UDTShortName
+												,AttributeValue				MDM.UDTLongName
 												,IsActive					TINYINT			
 												,IsDeleted					TINYINT			
-												,ControlType				INTEGER			
-												,IsMandatory				TINYINT			
-												,IsAddressType				TINYINT			
+												,ControlType				INTEGER
+												,ApplicableFor				TINYINT			
 												,Action						CHAR(1)
-											 )
+											  )
 
 			INSERT INTO @ContactAttributeMasterValues(
-														AttributeMasterValueID
-														,AttributeID		
-														,AttributeCode	
-														,AttributeValue	
-														,IsDefaultValue	
-														,IsActive		
-														,Action		
+														AttributeMasterID	
+														,AttributeID			
+														,SubType				
+														,IsDefaultValue			
+														,IsMandatory			
+														,ApplicableFor			
+														,Action	
 													 )
-												SELECT	AttributeMasterValueID
-														,AttributeID		
-														,AttributeCode	
-														,AttributeValue	
-														,IsDefaultValue	
-														,IsActive		
+												SELECT	MappingID	
+														,AttributeID			
+														,SubType				
+														,IsDefaultValue			
+														,IsMandatory			
+														,ApplicableFor			
 														,Action		
 												FROM OPENJSON(@jsonStringForContactAddressAttributes, '$.AttributeMasterMapping')
 												WITH(
-														AttributeMasterValueID		INTEGER
-														,AttributeID				INTEGER			
-														,AttributeCode				MDM.UDTShortName
-														,AttributeValue				MDM.UDTLongName
-														,IsDefaultValue				TINYINT			
-														,IsActive					TINYINT			
-														,Action						CHAR(1)
+														MappingID					INTEGER	
+														,AttributeID				INTEGER	
+														,SubType					INTEGER	
+														,IsDefaultValue				TINYINT	
+														,IsMandatory				TINYINT	
+														,ApplicableFor				TINYINT	
+														,Action						CHAR(1)	
 													)
 		END
 
+		
 		--Set AttributeID for new Attribute
 		SELECT	@AttributeID = NEXT VALUE FOR MDM.ContactAddressAttributeID
 		UPDATE A
@@ -146,8 +153,8 @@ BEGIN
 						,A.IsActive					=		B.IsActive				
 						,A.IsDeleted				=		B.IsDeleted				
 						,A.ControlType				=		B.ControlType			
-						,A.IsMandatory				=		B.IsMandatory			
-						,A.IsAddressType			=		B.IsAddressType			
+						,A.IsMandatory				=		C.IsMandatory			
+						,A.IsAddressType			=		C.SubType			
 						,A.ReviewedBy				=		@loginUser			
 						,A.LastModifiedDate			=		@lastModifiedDate		
 						,A.LastModifiedByUser		=		@loginUser		
@@ -155,19 +162,37 @@ BEGIN
 			FROM MDM.ContactAttributeMaster A
 			INNER JOIN @ContactAddressAttributeMaster B
 				ON A.AttributeID = B.AttributeID
-			WHERE B.Action = 'U'
+			INNER JOIN	@ContactAttributeMasterValues C
+				ON B.AttributeID = C.AttributeID
+			WHERE 
+				B.Action = 'U'
+				AND
+				C.Action = 'U'
+				AND
+				B.ApplicableFor = 3
+				AND
+				C.ApplicableFor = 3
 
 			--Update Data into MDM.ContactAttributeMasterValues table when action is 'U'
 			UPDATE A
 				SET		A.AttributeCode				=		B.AttributeCode	
 						,A.AttributeValue			=		B.AttributeValue	
-						,A.IsDefaultValue			=		B.IsDefaultValue	
+						,A.IsDefaultValue			=		C.IsDefaultValue	
 						,A.IsActive					=		B.IsActive		
 			FROM MDM.ContactAttributeMasterValues A
-			INNER JOIN @ContactAttributeMasterValues B
+			INNER JOIN @ContactAddressAttributeMaster B
 				ON A.AttributeMasterValueID = B.AttributeMasterValueID
-			WHERE B.Action = 'U'
-
+			INNER JOIN @ContactAttributeMasterValues C
+				ON B.AttributeID = C.AttributeID
+			WHERE 
+				B.Action = 'U'
+				AND
+				C.Action = 'U'
+				AND
+				B.ApplicableFor = 3
+				AND
+				C.ApplicableFor = 3
+			
 			--Insert Data into MDM.ContactAttributeMaster Table when Action is 'I'
 			INSERT INTO MDM.ContactAttributeMaster(
 													AttributeID			
@@ -182,19 +207,29 @@ BEGIN
 													,LastModifiedByUser		
 													,LastModifiedByMachine
 												  )
-											SELECT	AttributeID			
+								SELECT	DISTINCT	CAAM.AttributeID			
 													,AttributeName			
 													,IsActive				
 													,IsDeleted				
 													,ControlType			
 													,IsMandatory			
-													,IsAddressType			
+													,CAMV.SubType			
 													,@loginUser
 													,@lastModifiedDate		
 													,@loginUser		
 													,@machineName
 											FROM @ContactAddressAttributeMaster CAAM
-											WHERE CAAM.Action = 'I'
+											INNER JOIN
+												@ContactAttributeMasterValues CAMV
+												ON CAMV.AttributeID= CAAM.AttributeID
+											WHERE 
+												CAAM.Action = 'I'
+												AND
+												CAMV.Action = 'I'
+												AND 
+												CAAM.ApplicableFor = 3
+												AND
+												CAMV.ApplicableFor = 3
 
 			--Insert Data into MDM.ContactAttributeMasterValues Table when Action is 'I'
 			INSERT INTO MDM.ContactAttributeMasterValues(
@@ -204,13 +239,23 @@ BEGIN
 															,IsDefaultValue	
 															,IsActive		
 														)
-												SELECT		AttributeID	
+												SELECT		CAMV.AttributeID	
 															,AttributeCode	
 															,AttributeValue	
 															,IsDefaultValue	
 															,IsActive
-												FROM @ContactAttributeMasterValues 
-												WHERE Action = 'I'
+												FROM @ContactAttributeMasterValues CAMV
+												INNER JOIN
+													@ContactAddressAttributeMaster CAAM
+													ON CAMV.AttributeID = CAAM.AttributeID														
+												WHERE 
+													CAMV.Action = 'I'
+													AND
+													CAAM.Action = 'I'
+													AND 
+													CAAM.ApplicableFor = 3
+													AND
+													CAMV.ApplicableFor = 3
 
 		COMMIT TRANSACTION
 		RETURN 0

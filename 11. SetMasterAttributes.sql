@@ -16,12 +16,9 @@ Test Run		:	"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Insert (EntityAtt
 *************************************************************************/
 CREATE PROCEDURE MDM.SetMasterAttributes
 (
-	@applicationType						TINYINT			-- 1: Entity, 2: Client, 3: Contact/Address
-	,@machineName							VARCHAR(60)
+	@machineName							VARCHAR(60)
 	,@loginUser								VARCHAR(60)
-	,@jsonStringForEntityAttributes			NVARCHAR(MAX)
-	,@jsonStringForClientAttributes			NVARCHAR(MAX)
-	,@jsonStringForContactAddressAttributes	NVARCHAR(MAX)
+	,@jsonStringForMasterAttributes			NVARCHAR(MAX)
 )
 
 AS
@@ -31,26 +28,38 @@ BEGIN
 
 	BEGIN TRY
 
-		--DECLARE VARIABLES
-		DECLARE @lastModifiedDate	DATETIME2
+		--DECLARE VARIABLES   
+		DECLARE @ApplicableFor TABLE
+		(
+			ApplicableFor TINYINT
+		)
+
+		INSERT INTO @ApplicableFor(ApplicableFor)
+		SELECT ApplicableFor FROM OPENJSON(@jsonStringForMasterAttributes, '$.AttributeMaster')
+		WITH (ApplicableFor	TINYINT)
+
+		INSERT INTO @ApplicableFor(ApplicableFor)
+		SELECT ApplicableFor FROM OPENJSON(@jsonStringForMasterAttributes, '$.AttributeMasterMapping')
+		WITH (ApplicableFor	TINYINT)
+
 		BEGIN TRANSACTION
 
-			IF(@applicationType = 1)
+			IF EXISTS(Select ApplicableFor  from @ApplicableFor WHERE ApplicableFor = 1)
 			BEGIN
 				EXEC MDM.SetMasterEntityAttribute	@machineName = @machineName, @loginUser = @loginUser
-													,@jsonStringForEntityAttributes = @jsonStringForEntityAttributes
+													,@jsonStringForEntityAttributes = @jsonStringForMasterAttributes
 			END				
 
-			ELSE IF(@applicationType = 2)
+			IF EXISTS(Select ApplicableFor  from @ApplicableFor WHERE ApplicableFor = 2)
 			BEGIN
 				 EXEC MDM.SetMasterClientAttribute	@machineName = @machineName, @loginUser = @loginUser
-													,@jsonStringForClientAttributes = @jsonStringForClientAttributes
+													,@jsonStringForClientAttributes = @jsonStringForMasterAttributes
 			END
 
-			ELSE
+			IF EXISTS(Select ApplicableFor  from @ApplicableFor WHERE ApplicableFor = 3)
 			BEGIN
 				EXEC MDM.SetMasterContactAddressAttribute	@machineName = @machineName, @loginUser = @loginUser
-															,@jsonStringForContactAddressAttributes = @jsonStringForContactAddressAttributes
+															,@jsonStringForContactAddressAttributes = @jsonStringForMasterAttributes
 			END
 
 		COMMIT TRANSACTION

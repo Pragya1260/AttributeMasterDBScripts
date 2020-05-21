@@ -4,14 +4,13 @@ Objective		:	This procedure is used to save the master data for Entity Attribute
 Database		:	GlobalMasterAttributes
 Author			:	Pragya Sanjana
 Creation Date	:	12th May 2020
-Modified By		:
-Modified Date	:
+Modified By		:	Pragya Sanjana
+Modified Date	:	21th May 2020
 Execution Time	:	00.00
 Input Parameters:	@jsonStringForEntityAttributes, @machineName, @loginUser
 
 Algorithm and other details:
-Test Run		:	"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Insert (EntityAttributes).txt"
-					"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Update(EntityAttributes).txt"
+Test Run		:	Attached in Text File.
 *************************************************************************/
 CREATE PROCEDURE MDM.SetMasterEntityAttribute
 (
@@ -42,37 +41,39 @@ BEGIN
 			,IsDeleted					TINYINT				NOT NULL
 			,IsRTAAttribute				TINYINT				NOT NULL
 			,ControlType				INTEGER
+			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)	
 		DECLARE @EntityAttributeMasterMapping TABLE
 		(
-			AttributeMasterID			INTEGER				NOT NULL	
-			,EntityType					INTEGER				NOT NULL
+			MappingID					INTEGER				NOT NULL
+			,AttributeMasterID			INTEGER				NOT NULL	
+			,SubType					INTEGER				NOT NULL
 			,IsDefaultValue				TINYINT				NOT NULL
 			,IsPartOfDefaultSet			TINYINT				
 			,DisplayOrder				TINYINT				
 			,IsMandatory				TINYINT			    
 			,IsValidateFASLockDate		BIT					NOT NULL
+			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)
 		DECLARE @resultSet TABLE
 		(
 			ID					INTEGER IDENTITY(1,1)
-			,AttributeMasterID	INTEGER
+			,AttributeMasterID	INTEGER	DEFAULT NULL
 		)
 		DECLARE @oldAttributeMasterIDs TABLE
 		(
 			ID					INTEGER IDENTITY(1,1)
-			,oldAttributeMasterID	INTEGER		
+			,oldAttributeMasterID	INTEGER	DEFAULT NULL		
 		)
 		
 		--Update last modified date
 		SET @lastModifiedDate = GETDATE()
-
+	
 		--READ DATA FROM JSON AND INSERT IT INTO TEMP TABLE
 		IF (@jsonStringForEntityAttributes IS NOT NULL)
 		BEGIN
-
 			INSERT INTO @EntityAttributeMaster(	
 												AttributeMasterID														
 												,AttributeID
@@ -82,7 +83,8 @@ BEGIN
 												,IsActive				
 												,IsDeleted				
 												,IsRTAAttribute			
-												,ControlType			
+												,ControlType
+												,ApplicableFor
 												,Action				
 											  )
 										SELECT	AttributeMasterID	
@@ -93,7 +95,8 @@ BEGIN
 												,IsActive				
 												,IsDeleted				
 												,IsRTAAttribute			
-												,ControlType			
+												,ControlType	
+												,ApplicableFor
 												,Action					
 										FROM	OPENJSON(@jsonStringForEntityAttributes, '$.AttributeMaster')   
 										WITH  (	
@@ -105,52 +108,68 @@ BEGIN
 												,IsActive					TINYINT			
 												,IsDeleted					TINYINT			
 												,IsRTAAttribute				TINYINT			
-												,ControlType				INTEGER		
+												,ControlType				INTEGER	
+												,ApplicableFor				TINYINT
 												,Action						CHAR(1)			
 											 )
 
 			INSERT INTO @EntityAttributeMasterMapping(
-														AttributeMasterID		
-														,EntityType				
+														MappingID
+														,AttributeMasterID		
+														,SubType				
 														,IsDefaultValue			
 														,IsPartOfDefaultSet		
 														,DisplayOrder			
 														,IsMandatory			
 														,IsValidateFASLockDate
+														,ApplicableFor
 														,Action
 													 )
-												SELECT	AttributeMasterID		
-														,EntityType				
+												SELECT	MappingID
+														,AttributeMasterID		
+														,SubType				
 														,IsDefaultValue			
 														,IsPartOfDefaultSet		
 														,DisplayOrder			
 														,IsMandatory			
 														,IsValidateFASLockDate
+														,ApplicableFor
 														,Action
 												FROM OPENJSON(@jsonStringForEntityAttributes, '$.AttributeMasterMapping')
 												WITH(
-														AttributeMasterID			INTEGER	
-														,EntityType					INTEGER	
+														MappingID					INTEGER	
+														,AttributeMasterID			INTEGER	
+														,SubType					INTEGER	
 														,IsDefaultValue				TINYINT	
 														,IsPartOfDefaultSet			TINYINT	
 														,DisplayOrder				TINYINT	
 														,IsMandatory				TINYINT	
 														,IsValidateFASLockDate		BIT		
+														,ApplicableFor				TINYINT
 														,Action						CHAR(1)
 													)
 		END
 
 		--Insert AttributeMasterID of JSON into the @oldAttributeMasterIDs
-		INSERT INTO @oldAttributeMasterIDs(oldAttributeMasterID)
-		SELECT DISTINCT AttributeMasterID FROM @EntityAttributeMaster
+		IF EXISTS(SELECT * FROM @EntityAttributeMaster)
+		BEGIN	
+			INSERT INTO @oldAttributeMasterIDs(oldAttributeMasterID)
+			SELECT DISTINCT AttributeMasterID FROM @EntityAttributeMaster
+		END
+		ELSE
+			INSERT INTO @oldAttributeMasterIDs DEFAULT VALUES
 
 		--Set AttributeID for new Attribute
 		SELECT	@AttributeID = NEXT VALUE FOR MDM.AttributeID 
 		UPDATE A
 			SET A.AttributeID = @AttributeID
 		FROM @EntityAttributeMaster A
-		WHERE Action = 'I'
-		AND	A.AttributeID = 0
+		WHERE 
+			Action = 'I'
+			AND	
+			A.AttributeID = 0
+			AND 
+			A.ApplicableFor = 1
 
 		BEGIN TRANSACTION
 			--Update Data into MDM.EntityAttributeMaster Table when Action is 'U'
@@ -170,11 +189,14 @@ BEGIN
 			INNER JOIN
 				@EntityAttributeMaster B
 				ON A.AttributeMasterID = B.AttributeMasterID
-			WHERE B.Action = 'U'
+			WHERE 
+				B.Action = 'U'
+				AND
+				B.ApplicableFor = 1
 
 			--Update Data into MDM.EntityAttributeMasterMapping Table when Action is 'U'
 			UPDATE A
-				SET	 A.EntityType					=		B.EntityType				
+				SET	 A.EntityType					=		B.SubType				
 					,A.IsDefaultValue				=		B.IsDefaultValue			
 					,A.IsPartOfDefaultSet			=		B.IsPartOfDefaultSet		
 					,A.DisplayOrder					=		B.DisplayOrder			
@@ -183,9 +205,12 @@ BEGIN
 			FROM MDM.EntityAttributesMasterMapping A  
 			INNER JOIN
 				@EntityAttributeMasterMapping B
-				ON A.AttributeMasterID = B.AttributeMasterID
-			WHERE B.Action = 'U'
-
+				ON A.MappingID = B.MappingID
+			WHERE 
+				B.Action = 'U'
+				AND
+				B.ApplicableFor = 1
+			
 			--Insert Data into MDM.EntityAttributeMaster Table when Action is 'I'
 			INSERT INTO MDM.EntityAttributesMaster(
 													AttributeID			
@@ -216,7 +241,15 @@ BEGIN
 													,@loginUser	
 													,@machineName	
 										  FROM @EntityAttributeMaster EAM
-										  WHERE EAM.Action = 'I'
+										  WHERE 
+											EAM.Action = 'I'
+											AND
+											EAM.ApplicableFor = 1
+
+			IF NOT EXISTS(Select * from @resultSet)
+			BEGIN
+				INSERT INTO @resultSet DEFAULT VALUES
+			END
 
 			--Insert Data into MDM.EntityAttributesMasterMapping Table when Action is 'I'					
 			INSERT INTO MDM.EntityAttributesMasterMapping(
@@ -228,8 +261,8 @@ BEGIN
 															,IsMandatory			
 															,IsValidateFASLockDate
 														 )
-												SELECT		r.AttributeMasterID		
-															,EAMM.EntityType				
+												SELECT		ISNULL(r.AttributeMasterID,EAMM.AttributeMasterID)		
+															,EAMM.SubType				
 															,EAMM.IsDefaultValue			
 															,EAMM.IsPartOfDefaultSet		
 															,EAMM.DisplayOrder			
@@ -237,10 +270,13 @@ BEGIN
 															,EAMM.IsValidateFASLockDate
 												FROM @EntityAttributeMasterMapping EAMM
 												INNER JOIN @oldAttributeMasterIDs A
-													ON A.oldAttributeMasterID = EAMM.AttributeMasterID
+													ON A.oldAttributeMasterID = EAMM.AttributeMasterID OR A.oldAttributeMasterID IS NULL
 												INNER JOIN @resultSet R
 													ON R.ID = A.ID
-												WHERE EAMM.Action = 'I'
+												WHERE 
+													EAMM.Action = 'I'
+													AND
+													EAMM.ApplicableFor = 1
 
 		COMMIT TRANSACTION
 		RETURN 0

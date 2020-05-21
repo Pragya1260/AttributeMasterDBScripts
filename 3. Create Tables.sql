@@ -18,7 +18,7 @@ CREATE TABLE MDM.EntityAttributesMaster
 	,LastModifiedDate			DATETIME2			NOT NULL
 	,LastModifiedByUser			MDM.UDTModifiedBy	NOT NULL
 	,LastModifiedByMachine		MDM.UDTModifiedBy	NOT NULL
-	,CONSTRAINT UC_EntityAttributesMaster UNIQUE (AttributeID,AttributeCode,AttributeValue)
+	,CONSTRAINT UC_EntityAttributesMaster UNIQUE (AttributeName,AttributeCode,AttributeValue)
 )
 
 -- Table : MDM.EntityAttributesMasterMapping
@@ -78,4 +78,35 @@ CREATE TABLE MDM.ContactAttributeMasterValues
 	,IsActive					TINYINT				NOT NULL
 	,CONSTRAINT UC_ContactAttributeMasterValues UNIQUE (AttributeID,AttributeCode,AttributeValue)
 )
+
+-- Table : MDM.SystemInformation
+CREATE TABLE MDM.SystemInformation
+(
+	SystemInformationID			INTEGER			IDENTITY(1,1)		NOT NULL
+	,Type						VARCHAR(30)							NOT NULL
+	,Code						VARCHAR(30)							NOT NULL
+	,Name						VARCHAR(120)						NOT NULL
+	,Value						NVARCHAR(360)						NULL
+	,RefID						INTEGER								NOT NULL
+	,DisplayOrder				TINYINT								NOT NULL
+	,ValidFrom					DATE								NOT NULL
+	,ValidTo					DATE								NOT NULL
+	,Status						TINYINT								NOT NULL
+	,IsDefaultSet				TINYINT								NOT NULL
+	,VersionNumber				ROWVERSION							NOT NULL
+	,LastModifiedDate			DATETIME2(7)						NOT NULL
+	,LastModifiedByUser			VARCHAR(60)							NOT NULL
+	,LastModifiedByMachine		VARCHAR(60)							NOT NULL
+	CONSTRAINT [PK_SystemInformation_SystemInformationID] PRIMARY KEY CLUSTERED (SystemInformationID ASC)
+)
+
+CREATE NONCLUSTERED INDEX idx_SystemInformation_VersionNumber
+ON MDM.SystemInformation (VersionNumber DESC)
+
+CREATE NONCLUSTERED INDEX idx_SystemInformation_TypeValidFromValidToCode
+ON MDM.SystemInformation (Type ASC, ValidFrom ASC, ValidTo ASC, Code ASC, Value ASC)
+
+CREATE NONCLUSTERED INDEX idx_SystemInformation_TypeCode
+ON MDM.SystemInformation (Type ASC, Code ASC)
+INCLUDE(Name)
 

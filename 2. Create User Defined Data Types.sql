@@ -1,0 +1,15 @@
+USE GlobalMasterAttributes;
+GO
+
+--User Defined Data Types 
+CREATE TYPE MDM.UDTLongName  
+FROM VARCHAR(360) 
+
+CREATE TYPE MDM.UDTMediumName
+FROM VARCHAR(120) 
+
+CREATE TYPE MDM.UDTShortName
+FROM VARCHAR(60) 
+
+CREATE TYPE MDM.UDTModifiedBy
+FROM VARCHAR(60) 

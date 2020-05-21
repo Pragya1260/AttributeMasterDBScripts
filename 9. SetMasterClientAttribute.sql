@@ -30,7 +30,6 @@ BEGIN
 		--DECLARE VARIABLES
 		DECLARE @lastModifiedDate	DATETIME2
 		DECLARE @AttributeID INTEGER
-
 		DECLARE @ClientAttributeMaster TABLE
 		(
 			AttributeMasterID			INTEGER				NOT NULL
@@ -42,27 +41,30 @@ BEGIN
 			,IsDeleted					TINYINT				NOT NULL
 			,IsRTAAttribute				TINYINT				NOT NULL
 			,ControlType				INTEGER
+			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)	
 		DECLARE @ClientAttributeMasterMapping TABLE
 		(
-			AttributeMasterID			INTEGER				NOT NULL	
+			MappingID					INTEGER				NOT NULL
+			,AttributeMasterID			INTEGER				NOT NULL	
 			,ClientType					INTEGER				NOT NULL
 			,IsDefaultValue				TINYINT				NOT NULL
 			,IsPartOfDefaultSet			TINYINT				NOT NULL
 			,DisplayOrder				TINYINT				NOT NULL
 			,IsMandatory				TINYINT			    NOT NULL
+			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)
 		DECLARE @resultSet TABLE
 		(
 			ID					INTEGER IDENTITY(1,1)
-			,AttributeMasterID	INTEGER
+			,AttributeMasterID	INTEGER	DEFAULT NULL
 		)
 		DECLARE @oldAttributeMasterIDs TABLE
 		(
 			ID					INTEGER IDENTITY(1,1)
-			,oldAttributeMasterID	INTEGER		
+			,oldAttributeMasterID	INTEGER	DEFAULT NULL	
 		)
 		
 		--Update last modified date
@@ -71,8 +73,7 @@ BEGIN
 		--READ DATA FROM JSON AND INSERT IT INTO TEMP TABLE
 		IF (@jsonStringForClientAttributes IS NOT NULL)
 		BEGIN
-
-			INSERT INTO @ClientAttributeMaster(	
+			INSERT INTO @ClientAttributeMaster(
 												AttributeMasterID														
 												,AttributeID
 												,AttributeName			
@@ -81,7 +82,8 @@ BEGIN
 												,IsActive				
 												,IsDeleted				
 												,IsRTAAttribute			
-												,ControlType			
+												,ControlType
+												,ApplicableFor
 												,Action				
 											  )
 										SELECT	AttributeMasterID	
@@ -92,7 +94,8 @@ BEGIN
 												,IsActive				
 												,IsDeleted				
 												,IsRTAAttribute			
-												,ControlType			
+												,ControlType	
+												,ApplicableFor
 												,Action					
 										FROM	OPENJSON(@jsonStringForClientAttributes, '$.AttributeMaster')   
 										WITH  (	
@@ -105,48 +108,64 @@ BEGIN
 												,IsDeleted					TINYINT			
 												,IsRTAAttribute				TINYINT			
 												,ControlType				INTEGER		
+												,ApplicableFor				TINYINT
 												,Action						CHAR(1)			
 											 )
 
 			INSERT INTO @ClientAttributeMasterMapping(
-														AttributeMasterID		
+														MappingID
+														,AttributeMasterID		
 														,ClientType				
 														,IsDefaultValue			
 														,IsPartOfDefaultSet		
 														,DisplayOrder			
-														,IsMandatory		
+														,IsMandatory
+														,ApplicableFor
 														,Action
 													 )
-												SELECT	AttributeMasterID		
-														,ClientType				
+												SELECT	MappingID
+														,AttributeMasterID		
+														,SubType				
 														,IsDefaultValue			
 														,IsPartOfDefaultSet		
 														,DisplayOrder			
-														,IsMandatory		
+														,IsMandatory	
+														,ApplicableFor
 														,Action
 												FROM OPENJSON(@jsonStringForClientAttributes, '$.AttributeMasterMapping')
 												WITH(
-														AttributeMasterID			INTEGER	
-														,ClientType					INTEGER	
+														MappingID					INTEGER
+														,AttributeMasterID			INTEGER	
+														,SubType					INTEGER	
 														,IsDefaultValue				TINYINT	
 														,IsPartOfDefaultSet			TINYINT	
 														,DisplayOrder				TINYINT	
 														,IsMandatory				TINYINT		
+														,ApplicableFor				TINYINT
 														,Action						CHAR(1)
 													)
 		END
 
 		--Insert AttributeMasterID of JSON into the @oldAttributeMasterIDs
-		INSERT INTO @oldAttributeMasterIDs(oldAttributeMasterID)
-		SELECT DISTINCT AttributeMasterID FROM @ClientAttributeMaster
+		IF EXISTS(Select * from @ClientAttributeMaster)
+		BEGIN	
+			INSERT INTO @oldAttributeMasterIDs(oldAttributeMasterID)
+			SELECT DISTINCT AttributeMasterID FROM @ClientAttributeMaster
+		END
+		ELSE
+			INSERT INTO @oldAttributeMasterIDs DEFAULT VALUES
 
 		--Set AttributeID for new Attribute
 		SELECT	@AttributeID = NEXT VALUE FOR MDM.AttributeID 
 		UPDATE A
 			SET A.AttributeID = @AttributeID
 		FROM @ClientAttributeMaster A
-		WHERE Action = 'I'
-		AND	A.AttributeID = 0
+		WHERE 
+			Action = 'I'
+			AND	
+			A.AttributeID = 0
+			AND 
+			A.ApplicableFor = 2
 
 		BEGIN TRANSACTION
 			--Update Data into MDM.EntityAttributeMaster Table when Action is 'U'
@@ -166,7 +185,10 @@ BEGIN
 			INNER JOIN
 				@ClientAttributeMaster B
 				ON A.AttributeMasterID = B.AttributeMasterID
-			WHERE B.Action = 'U'
+			WHERE 
+				B.Action = 'U'
+				AND
+				B.ApplicableFor = 2
 
 			--Update Data into MDM.EntityAttributeMasterMapping Table when Action is 'U'
 			UPDATE A
@@ -178,8 +200,11 @@ BEGIN
 			FROM MDM.ClientAttributeMasterMapping A  
 			INNER JOIN
 				@ClientAttributeMasterMapping B
-				ON A.AttributeMasterID = B.AttributeMasterID
-			WHERE B.Action = 'U'
+				ON A.MappingID = B.MappingID 
+			WHERE 
+				B.Action = 'U'
+				AND
+				B.ApplicableFor = 2
 
 			--Insert Data into MDM.EntityAttributeMaster Table when Action is 'I'
 			INSERT INTO MDM.EntityAttributesMaster(
@@ -211,7 +236,15 @@ BEGIN
 													,@loginUser	
 													,@machineName	
 										  FROM @ClientAttributeMaster CAM
-										  WHERE CAM.Action = 'I'
+										  WHERE 
+											CAM.Action = 'I'
+											AND
+											CAM.ApplicableFor = 2
+
+			IF NOT EXISTS(Select * from @resultSet)
+			BEGIN
+				INSERT INTO @resultSet DEFAULT VALUES
+			END
 
 			--Insert Data into MDM.EntityAttributesMasterMapping Table when Action is 'I'					
 			INSERT INTO MDM.ClientAttributeMasterMapping(
@@ -222,7 +255,7 @@ BEGIN
 															,DisplayOrder			
 															,IsMandatory			
 														 )
-												SELECT		r.AttributeMasterID		
+												SELECT		ISNULL(R.AttributeMasterID,CAMM.AttributeMasterID)		
 															,CAMM.ClientType				
 															,CAMM.IsDefaultValue			
 															,CAMM.IsPartOfDefaultSet		
@@ -230,10 +263,13 @@ BEGIN
 															,CAMM.IsMandatory			
 												FROM @ClientAttributeMasterMapping CAMM
 												INNER JOIN @oldAttributeMasterIDs A
-													ON A.oldAttributeMasterID = CAMM.AttributeMasterID
+													ON A.oldAttributeMasterID = CAMM.AttributeMasterID OR A.oldAttributeMasterID IS NULL
 												INNER JOIN @resultSet R
 													ON R.ID = A.ID
-												WHERE CAMM.Action = 'I'
+												WHERE 
+													CAMM.Action = 'I'
+													AND
+													CAMM.ApplicableFor = 2
 
 		COMMIT TRANSACTION
 		RETURN 0
