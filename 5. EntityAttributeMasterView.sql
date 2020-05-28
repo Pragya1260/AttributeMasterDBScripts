@@ -1,6 +1,16 @@
-USE GlobalMasterAttributes ;
-GO
+/************************************************************************
+View Name		:	MDM.EntityAttributeMasterView
+Objective		:	This view is used to display the detailed information of Entity Attributes.
+Database		:	GlobalMasterAttributes
+Author			:	Pragya Sanjana
+Creation Date	:	12th May 2020
+Modified By		:	
+Modified Date	:	
+Execution Time	:	00.00
 
+Algorithm and other details:
+Test Run		:	Select * from MDM.EntityAttributeMasterView 
+*************************************************************************/
 CREATE VIEW MDM.EntityAttributeMasterView 
 AS
 	SELECT 
@@ -20,6 +30,8 @@ AS
 			,DisplayOrder
 			,IsMandatory
 			,IsValidateFASLockDate
+			,ApplicableStartDateChange
+			,ApplicableEndDateChange
 			,ReviewedBy
 			,VersionNumber
 			,LastModifiedDate

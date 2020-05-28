@@ -10,8 +10,7 @@ Execution Time	:	00.00
 Input Parameters:	@jsonStringForClientAttributes, @machineName, @loginUser
 
 Algorithm and other details:
-Test Run		:	"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Insert (ClientAttributes).txt"
-					"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Update(ClientAttributes).txt"
+Test Run		:	Attached in the file.
 *************************************************************************/
 CREATE PROCEDURE MDM.SetMasterClientAttribute
 (

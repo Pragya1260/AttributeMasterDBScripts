@@ -7,12 +7,11 @@ Creation Date	:	14th May 2020
 Modified By		:
 Modified Date	:
 Execution Time	:	00.00
-Input Parameters:	@applicationType, @machineName, @loginUser, @jsonStringForEntityAttributes, @jsonStringForClientAttributes,
-					@jsonStringForContactAddressAttributes
+Input Parameters:	@machineName, @loginUser,
+					@jsonStringForMasterAttributes
 
 Algorithm and other details:
-Test Run		:	"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Insert (EntityAttributes).txt"
-					"E:\NAVMDM\AttributeMaster\Docs\Execution Report - Update(EntityAttributes).txt"
+Test Run		:	Attached in text file
 *************************************************************************/
 CREATE PROCEDURE MDM.SetMasterAttributes
 (

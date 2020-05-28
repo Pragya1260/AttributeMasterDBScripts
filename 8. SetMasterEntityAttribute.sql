@@ -25,7 +25,6 @@ BEGIN
 	SET XACT_ABORT ON
 
 	BEGIN TRY
-
 		--DECLARE VARIABLES
 		DECLARE @lastModifiedDate	DATETIME2
 		DECLARE @AttributeID INTEGER
@@ -54,6 +53,8 @@ BEGIN
 			,DisplayOrder				TINYINT				
 			,IsMandatory				TINYINT			    
 			,IsValidateFASLockDate		BIT					NOT NULL
+			,ApplicableStartDateChange	TINYINT				NOT NULL
+			,ApplicableEndDateChange	TINYINT				NOT NULL
 			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)
@@ -123,6 +124,8 @@ BEGIN
 														,IsMandatory			
 														,IsValidateFASLockDate
 														,ApplicableFor
+														,ApplicableStartDateChange	
+														,ApplicableEndDateChange	
 														,Action
 													 )
 												SELECT	MappingID
@@ -134,6 +137,8 @@ BEGIN
 														,IsMandatory			
 														,IsValidateFASLockDate
 														,ApplicableFor
+														,ApplicableStartDateChange	
+														,ApplicableEndDateChange	
 														,Action
 												FROM OPENJSON(@jsonStringForEntityAttributes, '$.AttributeMasterMapping')
 												WITH(
@@ -146,8 +151,11 @@ BEGIN
 														,IsMandatory				TINYINT	
 														,IsValidateFASLockDate		BIT		
 														,ApplicableFor				TINYINT
+														,ApplicableStartDateChange	TINYINT
+														,ApplicableEndDateChange	TINYINT
 														,Action						CHAR(1)
 													)
+			
 		END
 
 		--Insert AttributeMasterID of JSON into the @oldAttributeMasterIDs
@@ -202,6 +210,8 @@ BEGIN
 					,A.DisplayOrder					=		B.DisplayOrder			
 					,A.IsMandatory					=		B.IsMandatory			
 					,A.IsValidateFASLockDate		=		B.IsValidateFASLockDate
+					,A.ApplicableStartDateChange	=		B.ApplicableStartDateChange
+					,A.ApplicableEndDateChange		=		B.ApplicableEndDateChange
 			FROM MDM.EntityAttributesMasterMapping A  
 			INNER JOIN
 				@EntityAttributeMasterMapping B
@@ -260,6 +270,8 @@ BEGIN
 															,DisplayOrder			
 															,IsMandatory			
 															,IsValidateFASLockDate
+															,ApplicableStartDateChange
+															,ApplicableEndDateChange
 														 )
 												SELECT		ISNULL(r.AttributeMasterID,EAMM.AttributeMasterID)		
 															,EAMM.SubType				
@@ -268,6 +280,8 @@ BEGIN
 															,EAMM.DisplayOrder			
 															,EAMM.IsMandatory			
 															,EAMM.IsValidateFASLockDate
+															,EAMM.ApplicableStartDateChange
+															,EAMM.ApplicableEndDateChange
 												FROM @EntityAttributeMasterMapping EAMM
 												INNER JOIN @oldAttributeMasterIDs A
 													ON A.oldAttributeMasterID = EAMM.AttributeMasterID OR A.oldAttributeMasterID IS NULL

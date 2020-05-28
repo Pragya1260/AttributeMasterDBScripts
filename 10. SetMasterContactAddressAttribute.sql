@@ -10,7 +10,7 @@ Execution Time	:	00.00
 Input Parameters:	@jsonStringForContactAddressAttributes, @machineName, @loginUser
 
 Algorithm and other details:
-Test Run		:	"E:\NAVMDM\AttributeMaster\Docs\Execution Report - ContactAddressAttributes.txt"
+Test Run		:	Attached in the text file
 *************************************************************************/
 CREATE PROCEDURE MDM.SetMasterContactAddressAttribute
 (
