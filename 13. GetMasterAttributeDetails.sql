@@ -4,8 +4,8 @@ Objective		:	This procedure is used to get the detail master attribute data for 
 Database		:	GlobalMasterAttributes
 Author			:	Pragya Sanjana
 Creation Date	:	15th May 2020
-Modified By		:
-Modified Date	:
+Modified By		:	Pragya Sanjana	
+Modified Date	:	27th May 2020
 Execution Time	:	00.00
 Input Parameters:	@applicationType,@attributeID
 
@@ -34,7 +34,7 @@ BEGIN
 							,AttributeName
 							,AttributeCode
 							,AttributeValue
-							,SI.Name
+							,EntityType
 							,IsActive
 							,IsDeleted
 							,IsRTAAttribute
@@ -50,13 +50,8 @@ BEGIN
 							,EAMV.LastModifiedByUser
 							,EAMV.LastModifiedByMachine
 					FROM MDM.EntityAttributeMasterView EAMV
-					INNER JOIN
-						MDM.SystemInformation SI
-						ON SI.Code = EAMV.EntityType
 					WHERE 
 						EAMV.AttributeID = @attributeID
-						AND
-						SI.Type = 'EntityType'
 			   END
 
 			   IF(@applicationType = 2)
@@ -68,7 +63,7 @@ BEGIN
 							,AttributeName
 							,AttributeCode
 							,AttributeValue
-							,SI.Name
+							,ClientType
 							,IsActive
 							,IsDeleted
 							,IsRTAAttribute
@@ -83,13 +78,8 @@ BEGIN
 							,CAMV.LastModifiedByUser
 							,CAMV.LastModifiedByMachine
 					FROM MDM.ClientAttributeMasterView CAMV
-					INNER JOIN
-						MDM.SystemInformation SI
-						ON SI.Code = CAMV.ClientType
 					WHERE 
 						CAMV.AttributeID = @attributeID
-						AND
-						SI.Type = 'ClientType'
 			   END
 
 			   IF(@applicationType = 3)
@@ -105,7 +95,7 @@ BEGIN
 							,IsDeleted
 							,ControlType
 							,IsMandatory
-							,SI.Name
+							,IsAddressType
 							,IsDefaultValue
 							,ReviewedBy
 							,CAAMV.VersionNumber
@@ -113,13 +103,8 @@ BEGIN
 							,CAAMV.LastModifiedByUser
 							,CAAMV.LastModifiedByMachine
 					FROM MDM.ContactAddressAttributeMasterView CAAMV
-					INNER JOIN
-						MDM.SystemInformation SI
-						ON SI.Code = CAAMV.IsAddressType
 					WHERE 
 						CAAMV.AttributeID = @attributeID
-						AND
-						SI.Type = 'ContactAddressType'
 			   END
 		COMMIT TRANSACTION
 		RETURN 0

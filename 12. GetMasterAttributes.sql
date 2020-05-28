@@ -4,10 +4,11 @@ Objective		:	This procedure is used to get the master attribute data for entity,
 Database		:	GlobalMasterAttributes
 Author			:	Pragya Sanjana
 Creation Date	:	15th May 2020
-Modified By		:
-Modified Date	:
+Modified By		:	Pragya Sanjana
+Modified Date	:	27th May 2020
 Execution Time	:	00.00
-Input Parameters:	@applicationType, @entityTypes, @clienTypes, @attributeIDs, @
+Input Parameters:	@applicationType,@type,@isActive,@isDeleted,@isRTAAttribute
+					,@isMandatory,@isFASLockDate,@attributeName,@attributeID
 
 Algorithm and other details:
 Test Run		:	Attached in Text File.
@@ -15,9 +16,12 @@ Test Run		:	Attached in Text File.
 CREATE PROCEDURE MDM.GetMasterAttributes
 (
 	@applicationType	TINYINT						-- 0:ALL, 1: Entity, 2: Client, 3: Contact/Address
-	,@type				VARCHAR(50)			=	NULL
+	,@type				VARCHAR(200)		=	NULL
 	,@isActive			BIT
 	,@isDeleted			BIT
+	,@isRTAAttribute	BIT
+	,@isMandatory		BIT
+	,@isFASLockDate		BIT
 	,@attributeName		MDM.UDTLongName		=	NULL   
 	,@attributeID		VARCHAR(150)		=	NULL
 )
@@ -31,18 +35,29 @@ BEGIN
 		--DECLARE VARIABLES
 		DECLARE @masterAttributes TABLE
 		(
-			ApplicationType				VARCHAR(60)
-			,AttributeID				INTEGER
-			,AttributeName				MDM.UDTLongName	
-			,AttributeCode				MDM.UDTShortName
-			,AttributeValue				MDM.UDTLongName
-			,SubType					VARCHAR(120)
-			,IsActive					BIT
-			,IsDeleted					BIT
-			,ReviewedBy					MDM.UDTModifiedBy
-			,LastModifiedDate			DATETIME2		
-			,LastModifiedByUser			MDM.UDTModifiedBy		
-			,LastModifiedByMachine		MDM.UDTModifiedBy
+			ApplicationType					VARCHAR(60)
+			,AttributeID					INTEGER
+			,AttributeMasterID				INTEGER
+			,MappingID						INTEGER
+			,AttributeName					MDM.UDTLongName	
+			,AttributeCode					MDM.UDTShortName
+			,AttributeValue					MDM.UDTLongName
+			,SubType						VARCHAR(120)
+			,ControlType					INTEGER
+			,IsRTAAttribute					VARCHAR(2)
+			,IsValidateFASLockDate			VARCHAR(2)
+			,IsMandatory					VARCHAR(2)
+			,ApplicableStartDateChange		VARCHAR(2)
+			,ApplicableEndDateChange		VARCHAR(2)
+			,IsDefaultValue					TINYINT
+			,IsPartOfDefaultSet				VARCHAR(2)
+			,DisplayOrder					VARCHAR(2)
+			,IsActive						BIT
+			,IsDeleted						BIT
+			,ReviewedBy						MDM.UDTModifiedBy
+			,LastModifiedDate				DATETIME2		
+			,LastModifiedByUser				MDM.UDTModifiedBy		
+			,LastModifiedByMachine			MDM.UDTModifiedBy
 		)	
 		
 		DECLARE @types TABLE
@@ -75,30 +90,51 @@ BEGIN
 
 		BEGIN TRANSACTION
 
-			
 			--ResultSet for Entity Attribute Data
 			IF (@applicationType = 1 OR @applicationType = 0)
 			BEGIN
 				INSERT INTO @masterAttributes(
-												ApplicationType
+												ApplicationType				
 												,AttributeID				
-												,AttributeName			
-												,AttributeCode			
-												,AttributeValue			
-												,SubType				
-												,IsActive				
-												,IsDeleted				
-												,ReviewedBy				
-												,LastModifiedDate		
-												,LastModifiedByUser		
+												,AttributeMasterID			
+												,MappingID					
+												,AttributeName				
+												,AttributeCode				
+												,AttributeValue				
+												,SubType					
+												,ControlType				
+												,IsRTAAttribute				
+												,IsValidateFASLockDate		
+												,IsMandatory				
+												,ApplicableStartDateChange	
+												,ApplicableEndDateChange	
+												,IsDefaultValue				
+												,IsPartOfDefaultSet			
+												,DisplayOrder				
+												,IsActive					
+												,IsDeleted					
+												,ReviewedBy					
+												,LastModifiedDate			
+												,LastModifiedByUser			
 												,LastModifiedByMachine	
 											 )
 										SELECT	'Entity'
 												,EAMV.AttributeID
+												,EAMV.AttributeMasterID
+												,EAMV.MappingID
 												,AttributeName
 												,AttributeCode
 												,AttributeValue
-												,SI.Name
+												,AttributeCode
+												,ControlType
+												,IsRTAAttribute
+												,IsValidateFASLockDate
+												,IsMandatory
+												,ApplicableStartDateChange
+												,ApplicableEndDateChange
+												,IsDefaultValue
+												,IsPartOfDefaultSet
+												,EAMV.DisplayOrder
 												,IsActive
 												,IsDeleted
 												,ReviewedBy
@@ -112,9 +148,6 @@ BEGIN
 										INNER JOIN
 											@AttributeIDs AI
 											ON EAMV.AttributeID = ISNULL(AI.AttributeID,EAMV.AttributeID)
-										INNER JOIN
-											MDM.SystemInformation SI
-											ON SI.Code = EAMV.EntityType
 										WHERE	
 										EAMV.AttributeName = ISNULL(@attributeName,EAMV.AttributeName)
 										AND
@@ -122,32 +155,58 @@ BEGIN
 										AND
 										EAMV.IsDeleted = @isDeleted
 										AND
-										SI.Type = 'EntityType'
+										EAMV.IsRTAAttribute = @isRTAAttribute
+										AND
+										EAMV.IsMandatory = @isMandatory
+										AND
+										EAMV.IsValidateFASLockDate = @isFASLockDate
 			END
 
 			--Resultset for Client Attribute Data
 			IF (@applicationType = 2 OR @applicationType = 0)
 			BEGIN
 				INSERT INTO @masterAttributes(	
-												ApplicationType
+												ApplicationType				
 												,AttributeID				
-												,AttributeName			
-												,AttributeCode			
-												,AttributeValue			
-												,SubType				
-												,IsActive				
-												,IsDeleted				
-												,ReviewedBy				
-												,LastModifiedDate		
-												,LastModifiedByUser		
+												,AttributeMasterID			
+												,MappingID					
+												,AttributeName				
+												,AttributeCode				
+												,AttributeValue				
+												,SubType					
+												,ControlType				
+												,IsRTAAttribute				
+												,IsValidateFASLockDate		
+												,IsMandatory				
+												,ApplicableStartDateChange	
+												,ApplicableEndDateChange	
+												,IsDefaultValue				
+												,IsPartOfDefaultSet			
+												,DisplayOrder				
+												,IsActive					
+												,IsDeleted					
+												,ReviewedBy					
+												,LastModifiedDate			
+												,LastModifiedByUser			
 												,LastModifiedByMachine	
 											 )
 										SELECT	'Client'
 												,CAMV.AttributeID
+												,AttributeMasterID
+												,MappingID
 												,AttributeName
 												,AttributeCode
 												,AttributeValue
-												,SI.Name
+												,ClientType
+												,ControlType
+												,IsRTAAttribute
+												,'NA'
+												,IsMandatory
+												,'NA'
+												,'NA'
+												,IsDefaultValue
+												,IsPartOfDefaultSet
+												,CAMV.DisplayOrder
 												,IsActive
 												,IsDeleted
 												,ReviewedBy
@@ -158,9 +217,6 @@ BEGIN
 										INNER JOIN
 											@types T
 											ON CAMV.ClientType = ISNULL(T.SubType,CAMV.ClientType)
-										INNER JOIN
-											MDM.SystemInformation SI
-											ON SI.Code = CAMV.ClientType 
 										WHERE	
 										CAMV.AttributeName = ISNULL(@attributeName,CAMV.AttributeName)
 										AND
@@ -169,33 +225,57 @@ BEGIN
 										CAMV.IsActive = @isActive
 									 	AND
 										CAMV.IsDeleted = @isDeleted
-										AND 
-										SI.Type = 'ClientType'
+										AND
+										CAMV.IsMandatory = @isMandatory
+										AND
+										CAMV.IsRTAAttribute = @isRTAAttribute
 			END
 
 			--Resultset for Contact Address Attribute Data
 			IF (@applicationType = 3 OR @applicationType = 0)
 			BEGIN
 				INSERT INTO @masterAttributes(
-												ApplicationType
+												ApplicationType				
 												,AttributeID				
-												,AttributeName			
-												,AttributeCode			
-												,AttributeValue			
-												,SubType				
-												,IsActive				
-												,IsDeleted				
-												,ReviewedBy				
-												,LastModifiedDate		
-												,LastModifiedByUser		
+												,AttributeMasterID			
+												,MappingID					
+												,AttributeName				
+												,AttributeCode				
+												,AttributeValue				
+												,SubType					
+												,ControlType				
+												,IsRTAAttribute				
+												,IsValidateFASLockDate		
+												,IsMandatory				
+												,ApplicableStartDateChange	
+												,ApplicableEndDateChange	
+												,IsDefaultValue				
+												,IsPartOfDefaultSet			
+												,DisplayOrder				
+												,IsActive					
+												,IsDeleted					
+												,ReviewedBy					
+												,LastModifiedDate			
+												,LastModifiedByUser			
 												,LastModifiedByMachine	
 											 )
 										SELECT	'Fund Contact Address'
 												,CAAMV.AttributeID
+												,AttributeMasterID
+												,AttributeMasterValueID
 												,AttributeName
 												,AttributeCode
 												,AttributeValue
-												,SI.Code
+												,IsAddressType
+												,ControlType
+												,'NA'
+												,'NA'
+												,IsMandatory
+												,'NA'
+												,'NA'
+												,IsDefaultValue
+												,'NA'
+												,'NA'
 												,IsActive
 												,IsDeleted
 												,ReviewedBy
@@ -206,9 +286,6 @@ BEGIN
 										INNER JOIN
 											@types T
 											ON CAAMV.IsAddressType = ISNULL(T.SubType,CAAMV.IsAddressType)
-										INNER JOIN
-											MDM.SystemInformation SI
-											ON SI.Code = CAAMV.IsAddressType
 										WHERE	
 										CAAMV.AttributeName = ISNULL(@attributeName,CAAMV.AttributeName)
 										AND
@@ -218,22 +295,33 @@ BEGIN
 										AND
 										CAAMV.IsDeleted = @isDeleted
 										AND
-										SI.Type = 'ContactAddressType'
+										CAAMV.IsMandatory = @isMandatory
 			END
 
 			--ResultSet for MasterAttributes
-			SELECT DISTINCT	ApplicationType
-							,AttributeID
-							,AttributeName			
-							,AttributeCode			
-							,AttributeValue			
-							,SubType				
-							,IsActive				
-							,IsDeleted	
-							,ReviewedBy				
-							,LastModifiedDate		
-							,LastModifiedByUser		
-							,LastModifiedByMachine	
+			SELECT	ApplicationType
+					,AttributeID				
+					,AttributeMasterID			
+					,MappingID					
+					,AttributeName				
+					,AttributeCode				
+					,AttributeValue				
+					,SubType					
+					,ControlType				
+					,IsRTAAttribute				
+					,IsValidateFASLockDate		
+					,IsMandatory				
+					,ApplicableStartDateChange	
+					,ApplicableEndDateChange	
+					,IsDefaultValue				
+					,IsPartOfDefaultSet			
+					,DisplayOrder				
+					,IsActive					
+					,IsDeleted					
+					,ReviewedBy					
+					,LastModifiedDate			
+					,LastModifiedByUser			
+					,LastModifiedByMachine	
 			FROM @masterAttributes
 
 		COMMIT TRANSACTION
