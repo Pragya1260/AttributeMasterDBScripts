@@ -40,7 +40,6 @@ BEGIN
 			,IsDeleted					TINYINT				NOT NULL
 			,IsRTAAttribute				TINYINT				NOT NULL
 			,ControlType				INTEGER
-			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)	
 		DECLARE @EntityAttributeMasterMapping TABLE
@@ -55,7 +54,6 @@ BEGIN
 			,IsValidateFASLockDate		BIT					NOT NULL
 			,ApplicableStartDateChange	TINYINT				NOT NULL
 			,ApplicableEndDateChange	TINYINT				NOT NULL
-			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)
 		DECLARE @resultSet TABLE
@@ -85,7 +83,6 @@ BEGIN
 												,IsDeleted				
 												,IsRTAAttribute			
 												,ControlType
-												,ApplicableFor
 												,Action				
 											  )
 										SELECT	AttributeMasterID	
@@ -97,7 +94,6 @@ BEGIN
 												,IsDeleted				
 												,IsRTAAttribute			
 												,ControlType	
-												,ApplicableFor
 												,Action					
 										FROM	OPENJSON(@jsonStringForEntityAttributes, '$.AttributeMaster')   
 										WITH  (	
@@ -110,7 +106,6 @@ BEGIN
 												,IsDeleted					TINYINT			
 												,IsRTAAttribute				TINYINT			
 												,ControlType				INTEGER	
-												,ApplicableFor				TINYINT
 												,Action						CHAR(1)			
 											 )
 
@@ -123,7 +118,6 @@ BEGIN
 														,DisplayOrder			
 														,IsMandatory			
 														,IsValidateFASLockDate
-														,ApplicableFor
 														,ApplicableStartDateChange	
 														,ApplicableEndDateChange	
 														,Action
@@ -136,7 +130,6 @@ BEGIN
 														,DisplayOrder			
 														,IsMandatory			
 														,IsValidateFASLockDate
-														,ApplicableFor
 														,ApplicableStartDateChange	
 														,ApplicableEndDateChange	
 														,Action
@@ -150,7 +143,6 @@ BEGIN
 														,DisplayOrder				TINYINT	
 														,IsMandatory				TINYINT	
 														,IsValidateFASLockDate		BIT		
-														,ApplicableFor				TINYINT
 														,ApplicableStartDateChange	TINYINT
 														,ApplicableEndDateChange	TINYINT
 														,Action						CHAR(1)
@@ -176,8 +168,6 @@ BEGIN
 			Action = 'I'
 			AND	
 			A.AttributeID = 0
-			AND 
-			A.ApplicableFor = 1
 
 		BEGIN TRANSACTION
 			--Update Data into MDM.EntityAttributeMaster Table when Action is 'U'
@@ -199,8 +189,6 @@ BEGIN
 				ON A.AttributeMasterID = B.AttributeMasterID
 			WHERE 
 				B.Action = 'U'
-				AND
-				B.ApplicableFor = 1
 
 			--Update Data into MDM.EntityAttributeMasterMapping Table when Action is 'U'
 			UPDATE A
@@ -218,8 +206,6 @@ BEGIN
 				ON A.MappingID = B.MappingID
 			WHERE 
 				B.Action = 'U'
-				AND
-				B.ApplicableFor = 1
 			
 			--Insert Data into MDM.EntityAttributeMaster Table when Action is 'I'
 			INSERT INTO MDM.EntityAttributesMaster(
@@ -253,8 +239,6 @@ BEGIN
 										  FROM @EntityAttributeMaster EAM
 										  WHERE 
 											EAM.Action = 'I'
-											AND
-											EAM.ApplicableFor = 1
 
 			IF NOT EXISTS(Select * from @resultSet)
 			BEGIN
@@ -289,8 +273,6 @@ BEGIN
 													ON R.ID = A.ID
 												WHERE 
 													EAMM.Action = 'I'
-													AND
-													EAMM.ApplicableFor = 1
 
 		COMMIT TRANSACTION
 		RETURN 0

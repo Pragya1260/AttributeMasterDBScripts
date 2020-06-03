@@ -7,15 +7,15 @@ Creation Date	:	15th May 2020
 Modified By		:	Pragya Sanjana
 Modified Date	:	27th May 2020
 Execution Time	:	00.00
-Input Parameters:	@applicationType,@type,@isActive,@isDeleted,@isRTAAttribute
-					,@isMandatory,@isFASLockDate,@attributeName,@attributeID
+Input Parameters:	@applicableFor,@type,@isActive,@isDeleted,@isRTAAttribute
+					,@isMandatory,@isFASLockDate,@attributeName,@attributeIDs
 
 Algorithm and other details:
 Test Run		:	Attached in Text File.
 *************************************************************************/
 CREATE PROCEDURE MDM.GetMasterAttributes
 (
-	@applicationType	TINYINT						-- 0:ALL, 1: Entity, 2: Client, 3: Contact/Address
+	@applicableFor		TINYINT						-- 0:ALL, 1: Entity, 2: Client, 3: Contact/Address
 	,@type				VARCHAR(200)		=	NULL
 	,@isActive			BIT
 	,@isDeleted			BIT
@@ -23,7 +23,7 @@ CREATE PROCEDURE MDM.GetMasterAttributes
 	,@isMandatory		BIT
 	,@isFASLockDate		BIT
 	,@attributeName		MDM.UDTLongName		=	NULL   
-	,@attributeID		VARCHAR(150)		=	NULL
+	,@attributeIDs		VARCHAR(150)		=	NULL
 )
 AS
 BEGIN
@@ -35,7 +35,7 @@ BEGIN
 		--DECLARE VARIABLES
 		DECLARE @masterAttributes TABLE
 		(
-			ApplicationType					VARCHAR(60)
+			ApplicableFor					VARCHAR(60)
 			,AttributeID					INTEGER
 			,AttributeMasterID				INTEGER
 			,MappingID						INTEGER
@@ -65,36 +65,40 @@ BEGIN
 			SubType	INTEGER	DEFAULT	NULL
 		)  
 
-		DECLARE @AttributeIDs TABLE
+		DECLARE @AttributeID TABLE
 		(
 			AttributeID	INTEGER	DEFAULT	NULL
 		)  
 
+		--Insert subtype values in temp table after splitting it from the string format. 
 		IF(@type IS NOT NULL)
 			BEGIN
 				INSERT INTO @types(SubType)
 				SELECT VALUE
 				FROM  STRING_SPLIT(@type, ',')
 			END
+		--Insert null value in temp table when parameter @type is null. 
 		ELSE
 			INSERT INTO @types DEFAULT VALUES
 
-		IF(@attributeID IS NOT NULL)
+		--Insert AttributeID values in temp table after splitting it from the string format. 
+		IF(@attributeIDs IS NOT NULL)
 			BEGIN
-				INSERT INTO @AttributeIDs(AttributeID)
+				INSERT INTO @AttributeID(AttributeID)
 				SELECT VALUE
-				FROM  STRING_SPLIT(@attributeID, ',')
+				FROM  STRING_SPLIT(@attributeIDs, ',')
 			END
+		--Insert null value in temp table when parameter @attributeIDs is null. 
 		ELSE
-			INSERT INTO @AttributeIDs DEFAULT VALUES
+			INSERT INTO @AttributeID DEFAULT VALUES
 
 		BEGIN TRANSACTION
 
 			--ResultSet for Entity Attribute Data
-			IF (@applicationType = 1 OR @applicationType = 0)
+			IF (@applicableFor = 1 OR @applicableFor = 0)
 			BEGIN
 				INSERT INTO @masterAttributes(
-												ApplicationType				
+												ApplicableFor				
 												,AttributeID				
 												,AttributeMasterID			
 												,MappingID					
@@ -125,7 +129,7 @@ BEGIN
 												,AttributeName
 												,AttributeCode
 												,AttributeValue
-												,AttributeCode
+												,SI.Name
 												,ControlType
 												,IsRTAAttribute
 												,IsValidateFASLockDate
@@ -146,8 +150,11 @@ BEGIN
 											@types T
 											ON EAMV.EntityType = ISNULL(T.SubType,EAMV.EntityType)
 										INNER JOIN
-											@AttributeIDs AI
+											@AttributeID AI
 											ON EAMV.AttributeID = ISNULL(AI.AttributeID,EAMV.AttributeID)
+										INNER JOIN
+											MDM.SystemInformation SI
+											ON SI.Code = EAMV.EntityType
 										WHERE	
 										EAMV.AttributeName = ISNULL(@attributeName,EAMV.AttributeName)
 										AND
@@ -160,13 +167,15 @@ BEGIN
 										EAMV.IsMandatory = @isMandatory
 										AND
 										EAMV.IsValidateFASLockDate = @isFASLockDate
+										AND 
+										SI.Type = 'EntityType'
 			END
 
 			--Resultset for Client Attribute Data
-			IF (@applicationType = 2 OR @applicationType = 0)
+			IF (@applicableFor = 2 OR @applicableFor = 0)
 			BEGIN
 				INSERT INTO @masterAttributes(	
-												ApplicationType				
+												ApplicableFor				
 												,AttributeID				
 												,AttributeMasterID			
 												,MappingID					
@@ -197,7 +206,7 @@ BEGIN
 												,AttributeName
 												,AttributeCode
 												,AttributeValue
-												,ClientType
+												,SI.Name
 												,ControlType
 												,IsRTAAttribute
 												,'NA'
@@ -215,12 +224,16 @@ BEGIN
 												,CAMV.LastModifiedByMachine
 										FROM MDM.ClientAttributeMasterView CAMV
 										INNER JOIN
+											@AttributeID AI
+											ON CAMV.AttributeID = ISNULL(AI.AttributeID,CAMV.AttributeID)
+										INNER JOIN
 											@types T
 											ON CAMV.ClientType = ISNULL(T.SubType,CAMV.ClientType)
+										INNER JOIN
+											MDM.SystemInformation SI
+											ON SI.Code = CAMV.ClientType
 										WHERE	
 										CAMV.AttributeName = ISNULL(@attributeName,CAMV.AttributeName)
-										AND
-										CAMV.AttributeID = ISNULL(@attributeID,CAMV.AttributeID)
 										AND
 										CAMV.IsActive = @isActive
 									 	AND
@@ -229,13 +242,15 @@ BEGIN
 										CAMV.IsMandatory = @isMandatory
 										AND
 										CAMV.IsRTAAttribute = @isRTAAttribute
+										AND
+										SI.Type = 'ClientType'
 			END
 
 			--Resultset for Contact Address Attribute Data
-			IF (@applicationType = 3 OR @applicationType = 0)
+			IF (@applicableFor = 3 OR @applicableFor = 0)
 			BEGIN
 				INSERT INTO @masterAttributes(
-												ApplicationType				
+												ApplicableFor				
 												,AttributeID				
 												,AttributeMasterID			
 												,MappingID					
@@ -266,7 +281,7 @@ BEGIN
 												,AttributeName
 												,AttributeCode
 												,AttributeValue
-												,IsAddressType
+												,SI.Name
 												,ControlType
 												,'NA'
 												,'NA'
@@ -286,20 +301,26 @@ BEGIN
 										INNER JOIN
 											@types T
 											ON CAAMV.IsAddressType = ISNULL(T.SubType,CAAMV.IsAddressType)
+										INNER JOIN
+											@AttributeID AI
+											ON CAAMV.AttributeID = ISNULL(AI.AttributeID,CAAMV.AttributeID)
+										INNER JOIN
+											MDM.SystemInformation SI
+											ON SI.Code = CAAMV.IsAddressType
 										WHERE	
 										CAAMV.AttributeName = ISNULL(@attributeName,CAAMV.AttributeName)
-										AND
-										CAAMV.AttributeID = ISNULL(@attributeID,CAAMV.AttributeID)
 										AND
 										CAAMV.IsActive = @isActive
 										AND
 										CAAMV.IsDeleted = @isDeleted
 										AND
 										CAAMV.IsMandatory = @isMandatory
+										AND
+										SI.Code = 'ContactAddressType'
 			END
 
 			--ResultSet for MasterAttributes
-			SELECT	ApplicationType
+			SELECT	ApplicableFor
 					,AttributeID				
 					,AttributeMasterID			
 					,MappingID					

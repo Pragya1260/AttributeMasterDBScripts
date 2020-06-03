@@ -40,7 +40,6 @@ BEGIN
 			,IsActive					TINYINT				NOT NULL
 			,IsDeleted					TINYINT				NOT NULL
 			,ControlType				INTEGER
-			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)
 
@@ -51,7 +50,6 @@ BEGIN
 			,SubType					INTEGER				NOT NULL
 			,IsDefaultValue				TINYINT				NOT NULL
 			,IsMandatory				TINYINT			    
-			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)
 
@@ -75,7 +73,6 @@ BEGIN
 														,IsActive			
 														,IsDeleted			
 														,ControlType		
-														,ApplicableFor		
 														,Action				
 														)
 												SELECT	AttributeMasterID	
@@ -86,7 +83,6 @@ BEGIN
 														,IsActive			
 														,IsDeleted			
 														,ControlType		
-														,ApplicableFor		
 														,Action				
 										FROM	OPENJSON(@jsonStringForContactAddressAttributes, '$.AttributeMaster')   
 										WITH  (	
@@ -97,8 +93,7 @@ BEGIN
 												,AttributeValue				MDM.UDTLongName
 												,IsActive					TINYINT			
 												,IsDeleted					TINYINT			
-												,ControlType				INTEGER
-												,ApplicableFor				TINYINT			
+												,ControlType				INTEGER			
 												,Action						CHAR(1)
 											  )
 
@@ -108,7 +103,6 @@ BEGIN
 														,SubType				
 														,IsDefaultValue			
 														,IsMandatory			
-														,ApplicableFor			
 														,Action	
 													 )
 												SELECT	MappingID	
@@ -116,7 +110,6 @@ BEGIN
 														,SubType				
 														,IsDefaultValue			
 														,IsMandatory			
-														,ApplicableFor			
 														,Action		
 												FROM OPENJSON(@jsonStringForContactAddressAttributes, '$.AttributeMasterMapping')
 												WITH(
@@ -125,7 +118,6 @@ BEGIN
 														,SubType					INTEGER	
 														,IsDefaultValue				TINYINT	
 														,IsMandatory				TINYINT	
-														,ApplicableFor				TINYINT	
 														,Action						CHAR(1)	
 													)
 		END
@@ -168,10 +160,6 @@ BEGIN
 				B.Action = 'U'
 				AND
 				C.Action = 'U'
-				AND
-				B.ApplicableFor = 3
-				AND
-				C.ApplicableFor = 3
 
 			--Update Data into MDM.ContactAttributeMasterValues table when action is 'U'
 			UPDATE A
@@ -188,10 +176,6 @@ BEGIN
 				B.Action = 'U'
 				AND
 				C.Action = 'U'
-				AND
-				B.ApplicableFor = 3
-				AND
-				C.ApplicableFor = 3
 			
 			--Insert Data into MDM.ContactAttributeMaster Table when Action is 'I'
 			INSERT INTO MDM.ContactAttributeMaster(
@@ -226,10 +210,6 @@ BEGIN
 												CAAM.Action = 'I'
 												AND
 												CAMV.Action = 'I'
-												AND 
-												CAAM.ApplicableFor = 3
-												AND
-												CAMV.ApplicableFor = 3
 
 			--Insert Data into MDM.ContactAttributeMasterValues Table when Action is 'I'
 			INSERT INTO MDM.ContactAttributeMasterValues(
@@ -252,10 +232,6 @@ BEGIN
 													CAMV.Action = 'I'
 													AND
 													CAAM.Action = 'I'
-													AND 
-													CAAM.ApplicableFor = 3
-													AND
-													CAMV.ApplicableFor = 3
 
 		COMMIT TRANSACTION
 		RETURN 0

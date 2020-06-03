@@ -40,7 +40,6 @@ BEGIN
 			,IsDeleted					TINYINT				NOT NULL
 			,IsRTAAttribute				TINYINT				NOT NULL
 			,ControlType				INTEGER
-			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)	
 		DECLARE @ClientAttributeMasterMapping TABLE
@@ -52,7 +51,6 @@ BEGIN
 			,IsPartOfDefaultSet			TINYINT				NOT NULL
 			,DisplayOrder				TINYINT				NOT NULL
 			,IsMandatory				TINYINT			    NOT NULL
-			,ApplicableFor				TINYINT				NOT NULL
 			,Action						CHAR(1)				NOT NULL
 		)
 		DECLARE @resultSet TABLE
@@ -82,7 +80,6 @@ BEGIN
 												,IsDeleted				
 												,IsRTAAttribute			
 												,ControlType
-												,ApplicableFor
 												,Action				
 											  )
 										SELECT	AttributeMasterID	
@@ -94,7 +91,6 @@ BEGIN
 												,IsDeleted				
 												,IsRTAAttribute			
 												,ControlType	
-												,ApplicableFor
 												,Action					
 										FROM	OPENJSON(@jsonStringForClientAttributes, '$.AttributeMaster')   
 										WITH  (	
@@ -107,7 +103,6 @@ BEGIN
 												,IsDeleted					TINYINT			
 												,IsRTAAttribute				TINYINT			
 												,ControlType				INTEGER		
-												,ApplicableFor				TINYINT
 												,Action						CHAR(1)			
 											 )
 
@@ -119,7 +114,6 @@ BEGIN
 														,IsPartOfDefaultSet		
 														,DisplayOrder			
 														,IsMandatory
-														,ApplicableFor
 														,Action
 													 )
 												SELECT	MappingID
@@ -129,7 +123,6 @@ BEGIN
 														,IsPartOfDefaultSet		
 														,DisplayOrder			
 														,IsMandatory	
-														,ApplicableFor
 														,Action
 												FROM OPENJSON(@jsonStringForClientAttributes, '$.AttributeMasterMapping')
 												WITH(
@@ -139,8 +132,7 @@ BEGIN
 														,IsDefaultValue				TINYINT	
 														,IsPartOfDefaultSet			TINYINT	
 														,DisplayOrder				TINYINT	
-														,IsMandatory				TINYINT		
-														,ApplicableFor				TINYINT
+														,IsMandatory				TINYINT	
 														,Action						CHAR(1)
 													)
 		END
@@ -163,8 +155,6 @@ BEGIN
 			Action = 'I'
 			AND	
 			A.AttributeID = 0
-			AND 
-			A.ApplicableFor = 2
 
 		BEGIN TRANSACTION
 			--Update Data into MDM.EntityAttributeMaster Table when Action is 'U'
@@ -186,8 +176,6 @@ BEGIN
 				ON A.AttributeMasterID = B.AttributeMasterID
 			WHERE 
 				B.Action = 'U'
-				AND
-				B.ApplicableFor = 2
 
 			--Update Data into MDM.EntityAttributeMasterMapping Table when Action is 'U'
 			UPDATE A
@@ -202,8 +190,6 @@ BEGIN
 				ON A.MappingID = B.MappingID 
 			WHERE 
 				B.Action = 'U'
-				AND
-				B.ApplicableFor = 2
 
 			--Insert Data into MDM.EntityAttributeMaster Table when Action is 'I'
 			INSERT INTO MDM.EntityAttributesMaster(
@@ -237,8 +223,6 @@ BEGIN
 										  FROM @ClientAttributeMaster CAM
 										  WHERE 
 											CAM.Action = 'I'
-											AND
-											CAM.ApplicableFor = 2
 
 			IF NOT EXISTS(Select * from @resultSet)
 			BEGIN
@@ -267,8 +251,6 @@ BEGIN
 													ON R.ID = A.ID
 												WHERE 
 													CAMM.Action = 'I'
-													AND
-													CAMM.ApplicableFor = 2
 
 		COMMIT TRANSACTION
 		RETURN 0
